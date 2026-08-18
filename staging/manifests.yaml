@@ -79,7 +79,7 @@ spec:
           value: '5432'
         - name: DB_USER
           value: app_backend
-        image: ghcr.io/pr3s3nt/student-manager-backend:d7a632d7f706e6ffec06127064995aae4c0dc2ec
+        image: localhost:5001/student-manager-backend:d7a632d7f706e6ffec06127064995aae4c0dc2ec
         livenessProbe:
           httpGet:
             path: /health
@@ -131,7 +131,7 @@ spec:
         app.kubernetes.io/name: frontend
     spec:
       containers:
-      - image: ghcr.io/pr3s3nt/student-manager-frontend:de6033ebaebec5accf232716ab846f1fd4de7934
+      - image: localhost:5001/student-manager-frontend:de6033ebaebec5accf232716ab846f1fd4de7934
         livenessProbe:
           httpGet:
             path: /
