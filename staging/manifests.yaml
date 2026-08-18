@@ -131,7 +131,7 @@ spec:
         app.kubernetes.io/name: frontend
     spec:
       containers:
-      - image: localhost:5001/student-manager-frontend:de6033ebaebec5accf232716ab846f1fd4de7934
+      - image: localhost:5001/student-manager-frontend:157e6814b3ae534ffa29e1ffb05a6586e9b06f16
         livenessProbe:
           httpGet:
             path: /
