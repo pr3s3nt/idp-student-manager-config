@@ -1,0 +1,3 @@
+# Sinh tự động bởi idpctl. Sửa tay được — lần render sau sẽ không ghi đè.
+namespace: student-manager-staging
+defaultNamespace: student-manager-staging

@@ -1,0 +1,247 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  annotations:
+    k8s.score.dev/resource-guid: 03efac18-a87d-4686-e12d-b2ab6d493f06
+    k8s.score.dev/resource-uid: postgres.application#backend.db
+    k8s.score.dev/source-workload: backend
+  labels:
+    app.kubernetes.io/name: pg-backend-03efac18
+    app.kubernetes.io/part-of: idp-platform
+  name: pg-backend-03efac18
+spec:
+  bootstrap:
+    initdb:
+      database: app_backend
+      owner: app_backend
+      secret:
+        name: pg-backend-03efac18-cred
+  enableSuperuserAccess: false
+  imageName: ghcr.io/cloudnative-pg/postgresql:17
+  instances: 1
+  managed:
+    roles:
+    - ensure: present
+      login: true
+      name: app_backend
+      passwordSecret:
+        name: pg-backend-03efac18-cred
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+  storage:
+    size: 10Gi
+    storageClass: storage-class
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    k8s.score.dev/workload-name: backend
+  labels:
+    app.kubernetes.io/instance: backend-a090ec5608
+    app.kubernetes.io/name: backend
+    env: staging
+  name: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: backend-a090ec5608
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        k8s.score.dev/workload-name: backend
+        tags: python,fastapi,api
+      labels:
+        app.kubernetes.io/instance: backend-a090ec5608
+        app.kubernetes.io/managed-by: score-k8s
+        app.kubernetes.io/name: backend
+    spec:
+      containers:
+      - env:
+        - name: DB_HOST
+          value: pg-backend-03efac18-rw
+        - name: DB_NAME
+          value: app_backend
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: pg-backend-03efac18-cred
+        - name: DB_PORT
+          value: '5432'
+        - name: DB_USER
+          value: app_backend
+        image: ghcr.io/pr3s3nt/student-manager-backend:d7a632d7f706e6ffec06127064995aae4c0dc2ec
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+        name: backend
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+      imagePullSecrets:
+      - name: registry-pull
+status: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    k8s.score.dev/workload-name: frontend
+  labels:
+    app.kubernetes.io/instance: frontend-394b3534aa
+    app.kubernetes.io/name: frontend
+    env: staging
+  name: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: frontend-394b3534aa
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        k8s.score.dev/workload-name: frontend
+        tags: nginx,vue,ui
+      labels:
+        app.kubernetes.io/instance: frontend-394b3534aa
+        app.kubernetes.io/managed-by: score-k8s
+        app.kubernetes.io/name: frontend
+    spec:
+      containers:
+      - image: ghcr.io/pr3s3nt/student-manager-frontend:de6033ebaebec5accf232716ab846f1fd4de7934
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+        name: frontend
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+        resources:
+          limits:
+            cpu: 50m
+            memory: 64Mi
+          requests:
+            cpu: 25m
+            memory: 32Mi
+      imagePullSecrets:
+      - name: registry-pull
+status: {}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  annotations:
+    k8s.score.dev/resource-guid: 916e7318-4c4e-4501-3fe9-027de03579ce
+    k8s.score.dev/resource-uid: route.default#frontend.route
+    k8s.score.dev/source-workload: frontend
+  labels:
+    app.kubernetes.io/name: route-frontend-916e7318
+  name: route-frontend-916e7318
+spec:
+  hostnames:
+  - frontend.staging.internal.dev
+  parentRefs:
+  - name: ingress-gateway
+    namespace: traefik
+  rules:
+  - backendRefs:
+    - name: frontend
+      port: 80
+    matches:
+    - path:
+        type: PathPrefix
+        value: /
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    k8s.score.dev/workload-name: backend
+  labels:
+    app.kubernetes.io/instance: backend-a090ec5608
+    app.kubernetes.io/name: backend
+  name: backend
+spec:
+  ports:
+  - name: http
+    port: 8000
+    protocol: TCP
+    targetPort: 8000
+  selector:
+    app.kubernetes.io/instance: backend-a090ec5608
+status:
+  loadBalancer: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    k8s.score.dev/workload-name: frontend
+  labels:
+    app.kubernetes.io/instance: frontend-394b3534aa
+    app.kubernetes.io/name: frontend
+  name: frontend
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app.kubernetes.io/instance: frontend-394b3534aa
+status:
+  loadBalancer: {}
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  annotations:
+    idp.platform/logical-secret: database
+    k8s.score.dev/resource-guid: 03efac18-a87d-4686-e12d-b2ab6d493f06
+    k8s.score.dev/resource-uid: postgres.application#backend.db
+    k8s.score.dev/source-workload: backend
+  labels:
+    app.kubernetes.io/name: pg-backend-03efac18
+    app.kubernetes.io/part-of: idp-platform
+  name: pg-backend-03efac18-cred
+spec:
+  destination:
+    create: true
+    name: pg-backend-03efac18-cred
+    transformation:
+      excludeRaw: true
+      includes:
+      - ^username$
+      - ^password$
+    type: kubernetes.io/basic-auth
+  hmacSecretData: true
+  mount: kv
+  path: apps/student-manager/staging/database
+  refreshAfter: 5m
+  type: kv-v2
+  vaultAuthRef: app-vault
